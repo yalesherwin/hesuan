@@ -25,6 +25,7 @@
   <option value="有花镀锌 厚板">有花镀锌 厚板</option>
   <option value="有花镀锌 (薄板)带精包">有花镀锌 (薄板)带精包</option>
   <option value="镀铝锌无耐指纹">镀铝锌无耐指纹</option>
+  <option value="网纹板">网纹板</option>
 </select>
 
 <label>厚度 (mm)</label>
@@ -63,16 +64,18 @@
     const type = document.getElementById("product").value;
     document.getElementById("coatingWrapper").classList.add("hidden");
     document.getElementById("fingerprintWrapper").classList.add("hidden");
+
     if (type === "彩涂板(新增)") {
       document.getElementById("coatingWrapper").classList.remove("hidden");
     }
+
     if (type === "镀铝锌无耐指纹") {
       document.getElementById("fingerprintWrapper").classList.remove("hidden");
     }
   }
 
   async function calculate() {
-    const product = document.getElementById("product").value;
+    let product = document.getElementById("product").value;
     const thickness = parseFloat(document.getElementById("thickness").value);
     const zincCount = parseInt(document.getElementById("zincCount").value) || 0;
     const coatingCount = parseInt(document.getElementById("coatingCount")?.value) || 0;
@@ -84,9 +87,12 @@
       return;
     }
 
+    // 如果是网纹板，则使用“彩基板”作为基础价格表
+    const fetchProduct = (product === "网纹板") ? "彩基板" : product;
+
     const sheetId = "1L8RGRPI7BdIlDew99K7QIXU5f7llOLqWqskwXb1lms4";
     const range = "A1:Z100";
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/'${encodeURIComponent(product)}'!${range}?key=AIzaSyB-io6C9S0y5I6YXMi9TrDbAx8PkC2ReKo`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/'${encodeURIComponent(fetchProduct)}'!${range}?key=AIzaSyB-io6C9S0y5I6YXMi9TrDbAx8PkC2ReKo`;
 
     try {
       const res = await fetch(url);
@@ -123,7 +129,7 @@
       const areaPerTon = volumePerTon / (thickness / 1000);
 
       const zincCost = areaPerTon * zincCount * 0.025;
-      const coatingCost = product === "彩涂板(新增)" ? areaPerTon * coatingCount * 0.05 : 0;
+      const coatingCost = (product === "彩涂板(新增)") ? areaPerTon * coatingCount * 0.05 : 0;
       let fingerprintCost = 0;
       if (product === "镀铝锌无耐指纹") {
         if (fingerprint === "clear") fingerprintCost = areaPerTon * 0.23;
@@ -132,7 +138,12 @@
         if (fingerprint === "green") fingerprintCost = areaPerTon * 0.23;
       }
 
-      const totalAdd = zincCost + coatingCost + fingerprintCost;
+      let patternBoardCost = 0;
+      if (product === "网纹板") {
+        patternBoardCost = areaPerTon * 1.35;
+      }
+
+      const totalAdd = zincCost + coatingCost + fingerprintCost + patternBoardCost;
       const totalPrice = basePrice + totalAdd;
       const totalUSD = totalPrice / rate;
 
@@ -141,6 +152,7 @@
         🧪 锌层加价: ¥${zincCost.toFixed(2)}<br>
         🎨 漆膜加价: ¥${coatingCost.toFixed(2)}<br>
         🛡️ 耐指纹加价: ¥${fingerprintCost.toFixed(2)}<br>
+        🧵 网纹板加价: ¥${patternBoardCost.toFixed(2)}<br>
         <hr>
         🧾 最终含加价单价: <strong style="color:green">¥${totalPrice.toFixed(2)}</strong> / 吨<br>
         💲 折合美元: <strong style="color:blue">$${totalUSD.toFixed(2)}</strong>（汇率 ¥${rate.toFixed(2)}）
