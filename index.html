@@ -55,6 +55,9 @@
 <label>当前汇率 (USD兑CNY)</label>
 <input type="number" id="rate" step="0.01" value="7.20">
 
+<label>美元海运费（如需计算 CIF）</label>
+<input type="number" id="freightUSD" step="0.01" placeholder="例如：25">
+
 <button onclick="calculate()">获取报价</button>
 
 <div class="result" id="result"></div>
@@ -64,32 +67,40 @@
     const type = document.getElementById("product").value;
     document.getElementById("coatingWrapper").classList.add("hidden");
     document.getElementById("fingerprintWrapper").classList.add("hidden");
+    document.getElementById("zincWrapper").classList.remove("hidden");
 
     if (type === "彩涂板(新增)") {
       document.getElementById("coatingWrapper").classList.remove("hidden");
     }
-
     if (type === "镀铝锌无耐指纹") {
       document.getElementById("fingerprintWrapper").classList.remove("hidden");
+    }
+    if (type === "网纹板") {
+      document.getElementById("zincWrapper").classList.add("hidden");
+      document.getElementById("coatingWrapper").classList.add("hidden");
+      document.getElementById("fingerprintWrapper").classList.add("hidden");
     }
   }
 
   async function calculate() {
     let product = document.getElementById("product").value;
     const thickness = parseFloat(document.getElementById("thickness").value);
-    const zincCount = parseInt(document.getElementById("zincCount").value) || 0;
+    const zincCount = parseInt(document.getElementById("zincCount")?.value) || 0;
     const coatingCount = parseInt(document.getElementById("coatingCount")?.value) || 0;
     const fingerprint = document.getElementById("fingerprint")?.value || "none";
     const rate = parseFloat(document.getElementById("rate").value);
+    const freightUSD = parseFloat(document.getElementById("freightUSD").value) || 0;
 
-    if (!thickness) {
+    if (!thickness || isNaN(thickness)) {
       document.getElementById("result").innerHTML = "❗ 请填写厚度";
       return;
     }
+    if (!rate || isNaN(rate)) {
+      document.getElementById("result").innerHTML = "❗ 请填写正确的汇率";
+      return;
+    }
 
-    // 如果是网纹板，则使用“彩基板”作为基础价格表
     const fetchProduct = (product === "网纹板") ? "彩基板" : product;
-
     const sheetId = "1L8RGRPI7BdIlDew99K7QIXU5f7llOLqWqskwXb1lms4";
     const range = "A1:Z100";
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/'${encodeURIComponent(fetchProduct)}'!${range}?key=AIzaSyB-io6C9S0y5I6YXMi9TrDbAx8PkC2ReKo`;
@@ -100,9 +111,7 @@
       const headers = data.values[0];
       const rows = data.values.slice(1);
       const thicknessCol = headers.findIndex(h => h.includes("厚度"));
-      const priceCol = headers.findIndex(h =>
-        h.includes("1000RMB") || h.includes("宽度(MM) 1000RMB")
-      );
+      const priceCol = headers.findIndex(h => h.includes("1000RMB"));
 
       let closestRow = null;
       let minDiff = Infinity;
@@ -123,7 +132,6 @@
       }
 
       const basePrice = parseFloat(closestRow[priceCol]);
-
       const density = 7850;
       const volumePerTon = 1 / (density / 1000);
       const areaPerTon = volumePerTon / (thickness / 1000);
@@ -137,25 +145,34 @@
         if (fingerprint === "gold") fingerprintCost = areaPerTon * 0.41;
         if (fingerprint === "green") fingerprintCost = areaPerTon * 0.23;
       }
-
-      let patternBoardCost = 0;
-      if (product === "网纹板") {
-        patternBoardCost = areaPerTon * 1.35;
-      }
+      const patternBoardCost = (product === "网纹板") ? areaPerTon * 1.35 : 0;
 
       const totalAdd = zincCost + coatingCost + fingerprintCost + patternBoardCost;
       const totalPrice = basePrice + totalAdd;
+      const fobPrice = totalPrice + 200;
       const totalUSD = totalPrice / rate;
+      const fobUSD = fobPrice / rate;
+
+      let cifPrice = null, cifPriceUSD = null;
+      if (freightUSD > 0) {
+        const freightRMB = freightUSD * rate;
+        cifPrice = fobPrice + freightRMB;
+        cifPriceUSD = cifPrice / rate;
+      }
 
       document.getElementById("result").innerHTML = `
-        ✅ 原价（每吨）: ¥${basePrice.toFixed(2)}<br>
-        🧪 锌层加价: ¥${zincCost.toFixed(2)}<br>
-        🎨 漆膜加价: ¥${coatingCost.toFixed(2)}<br>
-        🛡️ 耐指纹加价: ¥${fingerprintCost.toFixed(2)}<br>
-        🧵 网纹板加价: ¥${patternBoardCost.toFixed(2)}<br>
+        ✅ 出厂价: ¥${totalPrice.toFixed(2)} / $${totalUSD.toFixed(2)}<br>
+        🚢 FOB价: ¥${fobPrice.toFixed(2)} / $${fobUSD.toFixed(2)}<br>
+        🌍 CIF价: ${
+          cifPrice ? `¥${cifPrice.toFixed(2)} / $${cifPriceUSD.toFixed(2)}` : `<span style="color:gray">请填写美元海运费计算</span>`
+        }
         <hr>
-        🧾 最终含加价单价: <strong style="color:green">¥${totalPrice.toFixed(2)}</strong> / 吨<br>
-        💲 折合美元: <strong style="color:blue">$${totalUSD.toFixed(2)}</strong>（汇率 ¥${rate.toFixed(2)}）
+        📦 明细加价：<br>
+        🧪 锌层: ¥${zincCost.toFixed(2)}<br>
+        🎨 漆膜: ¥${coatingCost.toFixed(2)}<br>
+        🛡️ 耐指纹: ¥${fingerprintCost.toFixed(2)}<br>
+        🧵 网纹: ¥${patternBoardCost.toFixed(2)}<br>
+        🔁 汇率: ¥${rate.toFixed(2)} / USD
       `;
     } catch (err) {
       document.getElementById("result").innerHTML = "❌ 获取原价失败，请稍后重试";
