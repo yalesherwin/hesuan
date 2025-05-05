@@ -13,6 +13,7 @@
     }
     .result { margin-top: 30px; background: #fff; padding: 20px; border: 1px solid #ccc; }
     .hidden { display: none; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -32,13 +33,13 @@
 <input type="number" id="thickness" step="0.01" placeholder="例如：0.35">
 
 <div id="zincWrapper">
-  <label>锌层层数</label>
-  <input type="number" id="zincCount" min="0" step="1" placeholder="例如：1">
+  <label>锌层层数 (g/m²)</label>
+  <input type="number" id="zincCount" min="0" step="1" placeholder="例如：40">
 </div>
 
 <div id="coatingWrapper" class="hidden">
   <label>漆膜层数</label>
-  <input type="number" id="coatingCount" min="0" step="1" placeholder="例如：2">
+  <input type="number" id="coatingCount" min="0" step="1" placeholder="例如：15">
 </div>
 
 <div id="fingerprintWrapper" class="hidden">
@@ -58,7 +59,7 @@
 <label>美元海运费（如需计算 CIF）</label>
 <input type="number" id="freightUSD" step="0.01" placeholder="例如：25">
 
-<button onclick="calculate()">获取报价</button>
+<button id="calcBtn" onclick="calculate()">获取报价</button>
 
 <div class="result" id="result"></div>
 
@@ -83,22 +84,45 @@
   }
 
   async function calculate() {
+    const btn = document.getElementById("calcBtn");
+    btn.disabled = true;
+    btn.innerText = "计算中...";
+
     let product = document.getElementById("product").value;
     const thickness = parseFloat(document.getElementById("thickness").value);
-    const zincCount = parseInt(document.getElementById("zincCount")?.value) || 0;
-    const coatingCount = parseInt(document.getElementById("coatingCount")?.value) || 0;
+    const zincInput = document.getElementById("zincCount")?.value;
+    const coatingInput = document.getElementById("coatingCount")?.value;
     const fingerprint = document.getElementById("fingerprint")?.value || "none";
     const rate = parseFloat(document.getElementById("rate").value);
     const freightUSD = parseFloat(document.getElementById("freightUSD").value) || 0;
 
     if (!thickness || isNaN(thickness)) {
       document.getElementById("result").innerHTML = "❗ 请填写厚度";
+      resetButton();
       return;
     }
     if (!rate || isNaN(rate)) {
       document.getElementById("result").innerHTML = "❗ 请填写正确的汇率";
+      resetButton();
       return;
     }
+
+    const baseZincMap = {
+      "彩涂板(新增)": 15,
+      "有花镀锌 厚板": 30,
+      "有花镀锌 (薄板)带精包": 20,
+      "镀铝锌无耐指纹": 18,
+      "网纹板": 15
+    };
+    const baseCoatingMap = {
+      "彩涂板(新增)": 13
+    };
+
+    const userZinc = zincInput ? parseInt(zincInput) : baseZincMap[product] || 0;
+    const userCoating = coatingInput ? parseInt(coatingInput) : baseCoatingMap[product] || 0;
+
+    const zincCount = Math.max(0, userZinc - (baseZincMap[product] || 0));
+    const coatingCount = Math.max(0, userCoating - (baseCoatingMap[product] || 0));
 
     const fetchProduct = (product === "网纹板") ? "彩基板" : product;
     const sheetId = "1L8RGRPI7BdIlDew99K7QIXU5f7llOLqWqskwXb1lms4";
@@ -128,6 +152,7 @@
 
       if (!closestRow) {
         document.getElementById("result").innerHTML = `未找到厚度 ${thickness} 的报价。`;
+        resetButton();
         return;
       }
 
@@ -168,8 +193,8 @@
         }
         <hr>
         📦 明细加价：<br>
-        🧪 锌层: ¥${zincCost.toFixed(2)}<br>
-        🎨 漆膜: ¥${coatingCost.toFixed(2)}<br>
+        🧪 锌层: ¥${zincCost.toFixed(2)}（超出 ${zincCount}g）<br>
+        🎨 漆膜: ¥${coatingCost.toFixed(2)}（超出 ${coatingCount} 层）<br>
         🛡️ 耐指纹: ¥${fingerprintCost.toFixed(2)}<br>
         🧵 网纹: ¥${patternBoardCost.toFixed(2)}<br>
         🔁 汇率: ¥${rate.toFixed(2)} / USD
@@ -178,6 +203,14 @@
       document.getElementById("result").innerHTML = "❌ 获取原价失败，请稍后重试";
       console.error(err);
     }
+
+    resetButton();
+  }
+
+  function resetButton() {
+    const btn = document.getElementById("calcBtn");
+    btn.disabled = false;
+    btn.innerText = "获取报价";
   }
 
   updateFields();
