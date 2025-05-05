@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>CHINACNU 钢卷加价计算器</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      padding: 20px;
+      max-width: 700px;
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+      color: #1a73e8;
+    }
+    label {
+      margin-top: 15px;
+      display: block;
+      font-weight: bold;
+    }
+    select, input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      font-size: 16px;
+    }
+    .result {
+      margin-top: 30px;
+      padding: 15px;
+      background: #fff;
+      border: 1px solid #ccc;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<h1>CHINACNU 加价计算器</h1>
+
+<label>产品种类</label>
+<select id="product" onchange="updateFields()">
+  <option value="color">彩涂板(新增)</option>
+  <option value="galv_thick">有花镀锌 厚板</option>
+  <option value="galv_thin">有花镀锌 (薄板)带精包</option>
+  <option value="aluzinc">镀铝锌无耐指纹</option>
+</select>
+
+<label>厚度 (mm)</label>
+<input type="number" id="thickness" step="0.01" placeholder="例如：0.5">
+
+<label>宽度 (mm)</label>
+<input type="number" id="width" step="1" placeholder="例如：1250">
+
+<div id="zincWrapper">
+  <label>锌层层数</label>
+  <input type="number" id="zinc" min="0" step="1" placeholder="例如：1">
+</div>
+
+<div id="coatingWrapper" class="hidden">
+  <label>漆膜层数</label>
+  <input type="number" id="coating" min="0" step="1" placeholder="例如：2">
+</div>
+
+<div id="fingerprintWrapper" class="hidden">
+  <label>耐指纹类型</label>
+  <select id="fingerprint">
+    <option value="none">无</option>
+    <option value="clear">透明双面</option>
+    <option value="color">彩色双面</option>
+    <option value="gold">金色双面</option>
+    <option value="green">绿色单面</option>
+  </select>
+</div>
+
+<label>当前汇率 (USD兑CNY)</label>
+<input type="number" id="rate" step="0.01" value="7.20">
+
+<button onclick="calculate()">计算加价</button>
+
+<div class="result" id="result"></div>
+
+<script>
+  function updateFields() {
+    const type = document.getElementById("product").value;
+    document.getElementById("coatingWrapper").classList.add("hidden");
+    document.getElementById("fingerprintWrapper").classList.add("hidden");
+
+    if (type === "color") {
+      document.getElementById("coatingWrapper").classList.remove("hidden");
+    }
+    if (type === "aluzinc") {
+      document.getElementById("fingerprintWrapper").classList.remove("hidden");
+    }
+  }
+
+  function calculate() {
+    const thickness = parseFloat(document.getElementById("thickness").value) / 1000;
+    const width = parseFloat(document.getElementById("width").value) / 1000;
+    const zincCount = parseInt(document.getElementById("zinc").value) || 0;
+    const coatingCount = parseInt(document.getElementById("coating")?.value) || 0;
+    const fingerprint = document.getElementById("fingerprint")?.value || "none";
+    const rate = parseFloat(document.getElementById("rate").value);
+    const productType = document.getElementById("product").value;
+
+    if (!thickness || !width) {
+      document.getElementById("result").innerHTML = "⚠️ 请填写完整的厚度和宽度";
+      return;
+    }
+
+    const density = 7850;
+    const volumePerTon = 1 / (density / 1000);
+    const areaPerTon = volumePerTon / thickness;
+    const metersPerTon = areaPerTon / width;
+
+    // 单价标准
+    const zincPrice = 0.025;
+    const coatingPrice = 0.05;
+
+    let fingerprintCost = 0;
+    if (productType === "aluzinc") {
+      switch (fingerprint) {
+        case "clear": fingerprintCost = areaPerTon * 0.23; break;
+        case "color": fingerprintCost = areaPerTon * 0.33; break;
+        case "gold": fingerprintCost = areaPerTon * 0.41; break;
+        case "green": fingerprintCost = areaPerTon * 0.23; break;
+      }
+    }
+
+    const zincCost = areaPerTon * zincCount * zincPrice;
+    const coatingCost = (productType === "color") ? areaPerTon * coatingCount * coatingPrice : 0;
+
+    const totalCNY = zincCost + coatingCost + fingerprintCost;
+    const totalUSD = totalCNY / rate;
+
+    document.getElementById("result").innerHTML = `
+      ✅ 每吨长度: <strong>${metersPerTon.toFixed(2)}</strong> 米<br>
+      ✅ 每吨面积: <strong>${areaPerTon.toFixed(2)}</strong> 平方米<br>
+      🧪 锌层加价: ¥${zincCost.toFixed(2)}<br>
+      🎨 漆膜加价: ¥${coatingCost.toFixed(2)}<br>
+      🛡️ 耐指纹加价: ¥${fingerprintCost.toFixed(2)}<br>
+      <hr>
+      💰 总加价（人民币）: <strong style="color:green">¥${totalCNY.toFixed(2)}</strong><br>
+      💲 总加价（美元）: <strong style="color:blue">$${totalUSD.toFixed(2)}</strong>
+    `;
+  }
+
+  updateFields(); // 初始化字段显示
+</script>
+
+</body>
+</html>
