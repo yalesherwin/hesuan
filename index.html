@@ -276,15 +276,15 @@ async function calculate() {
 
     document.getElementById("result").innerHTML = `
       ✅ 出厂价: ¥${totalPrice.toFixed(2)} / $${totalUSD.toFixed(2)}<br>
-      🧾 含税出厂价: ¥${totalTaxPrice.toFixed(2)}<br><br>
+      🧾 含税出厂价: ¥${totalTaxPrice.toFixed(2)} / $${(totalTaxPrice / rate).toFixed(2)}<br><br>
 
       🚢 FOB价: ¥${fobPrice.toFixed(2)} / $${fobUSD.toFixed(2)}<br>
-      🧾 含税FOB价: ¥${fobTaxPrice.toFixed(2)}<br><br>
+      🧾 含税FOB价: ¥${fobTaxPrice.toFixed(2)} / $${(fobTaxPrice / rate).toFixed(2)}<br><br>
 
       🌍 CIF价: ${
         cifPrice
           ? `¥${cifPrice.toFixed(2)} / $${cifPriceUSD.toFixed(2)}<br>
-             🧾 含税CIF价: ¥${cifTaxPrice.toFixed(2)}`
+             🧾 含税CIF价: ¥${cifTaxPrice.toFixed(2)} / $${(cifTaxPrice / rate).toFixed(2)}`
           : `<span style="color:gray">请填写美元海运费计算</span>`
       }
       <hr>
