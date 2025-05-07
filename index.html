@@ -137,7 +137,6 @@
   <div class="result" id="result"></div>
 </div>
 
-<!-- 粒子特效 -->
 <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
 <script>
 particlesJS("particles-js", {
@@ -159,7 +158,6 @@ particlesJS("particles-js", {
 });
 </script>
 
-<!-- 业务逻辑脚本（同之前） -->
 <script>
 function updateFields() {
   const type = document.getElementById("product").value;
@@ -167,12 +165,8 @@ function updateFields() {
   document.getElementById("fingerprintWrapper").classList.add("hidden");
   document.getElementById("zincWrapper").classList.remove("hidden");
 
-  if (type === "彩涂板(新增)") {
-    document.getElementById("coatingWrapper").classList.remove("hidden");
-  }
-  if (type === "镀铝锌无耐指纹") {
-    document.getElementById("fingerprintWrapper").classList.remove("hidden");
-  }
+  if (type === "彩涂板(新增)") document.getElementById("coatingWrapper").classList.remove("hidden");
+  if (type === "镀铝锌无耐指纹") document.getElementById("fingerprintWrapper").classList.remove("hidden");
   if (type === "网纹板") {
     document.getElementById("zincWrapper").classList.add("hidden");
     document.getElementById("coatingWrapper").classList.add("hidden");
@@ -185,7 +179,7 @@ async function calculate() {
   btn.disabled = true;
   btn.innerText = "计算中...";
 
-  let product = document.getElementById("product").value;
+  const product = document.getElementById("product").value;
   const thickness = parseFloat(document.getElementById("thickness").value);
   const zincInput = document.getElementById("zincCount")?.value;
   const coatingInput = document.getElementById("coatingCount")?.value;
@@ -195,13 +189,11 @@ async function calculate() {
 
   if (!thickness || isNaN(thickness)) {
     document.getElementById("result").innerHTML = "❗ 请填写厚度";
-    resetButton();
-    return;
+    resetButton(); return;
   }
   if (!rate || isNaN(rate)) {
     document.getElementById("result").innerHTML = "❗ 请填写正确的汇率";
-    resetButton();
-    return;
+    resetButton(); return;
   }
 
   const baseZincMap = {
@@ -211,9 +203,7 @@ async function calculate() {
     "镀铝锌无耐指纹": 18,
     "网纹板": 15
   };
-  const baseCoatingMap = {
-    "彩涂板(新增)": 13
-  };
+  const baseCoatingMap = { "彩涂板(新增)": 13 };
 
   const userZinc = zincInput ? parseInt(zincInput) : baseZincMap[product] || 0;
   const userCoating = coatingInput ? parseInt(coatingInput) : baseCoatingMap[product] || 0;
@@ -234,8 +224,7 @@ async function calculate() {
     const thicknessCol = headers.findIndex(h => h.includes("厚度"));
     const priceCol = headers.findIndex(h => h.includes("1000RMB"));
 
-    let closestRow = null;
-    let minDiff = Infinity;
+    let closestRow = null, minDiff = Infinity;
     for (const row of rows) {
       const t = parseFloat(row[thicknessCol]);
       if (!isNaN(t)) {
@@ -249,8 +238,7 @@ async function calculate() {
 
     if (!closestRow) {
       document.getElementById("result").innerHTML = `未找到厚度 ${thickness} 的报价。`;
-      resetButton();
-      return;
+      resetButton(); return;
     }
 
     const basePrice = parseFloat(closestRow[priceCol]);
@@ -274,19 +262,30 @@ async function calculate() {
     const fobPrice = totalPrice + 200;
     const totalUSD = totalPrice / rate;
     const fobUSD = fobPrice / rate;
+    const taxRate = 0.935;
+    const totalTaxPrice = totalPrice / taxRate;
+    const fobTaxPrice = fobPrice / taxRate;
 
-    let cifPrice = null, cifPriceUSD = null;
+    let cifPrice = null, cifPriceUSD = null, cifTaxPrice = null;
     if (freightUSD > 0) {
       const freightRMB = freightUSD * rate;
       cifPrice = fobPrice + freightRMB;
       cifPriceUSD = cifPrice / rate;
+      cifTaxPrice = cifPrice / taxRate;
     }
 
     document.getElementById("result").innerHTML = `
       ✅ 出厂价: ¥${totalPrice.toFixed(2)} / $${totalUSD.toFixed(2)}<br>
+      🧾 含税出厂价: ¥${totalTaxPrice.toFixed(2)}<br><br>
+
       🚢 FOB价: ¥${fobPrice.toFixed(2)} / $${fobUSD.toFixed(2)}<br>
+      🧾 含税FOB价: ¥${fobTaxPrice.toFixed(2)}<br><br>
+
       🌍 CIF价: ${
-        cifPrice ? `¥${cifPrice.toFixed(2)} / $${cifPriceUSD.toFixed(2)}` : `<span style="color:gray">请填写美元海运费计算</span>`
+        cifPrice
+          ? `¥${cifPrice.toFixed(2)} / $${cifPriceUSD.toFixed(2)}<br>
+             🧾 含税CIF价: ¥${cifTaxPrice.toFixed(2)}`
+          : `<span style="color:gray">请填写美元海运费计算</span>`
       }
       <hr>
       📦 明细加价：<br>
@@ -315,4 +314,5 @@ updateFields();
 
 </body>
 </html>
+
 
